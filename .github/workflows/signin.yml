@@ -2,8 +2,8 @@ name: TRAE 每日签到
 
 on:
   schedule:
-    # 每天 00:00 UTC = 08:00 北京时间
-    - cron: '0 0 * * *'
+    # 每天 16:01 UTC = 00:01 北京时间
+    - cron: '1 16 * * *'
   workflow_dispatch: # 支持手动触发
 
 jobs:
@@ -57,7 +57,14 @@ jobs:
           if [ "${{ steps.result.outputs.fail }}" -gt 0 ] 2>/dev/null; then
             TITLE="⚠️ TRAE签到异常"
           fi
-          BODY="总计${{ steps.result.outputs.total }} 成功${{ steps.result.outputs.ok }} 已签${{ steps.result.outputs.already }} 失败${{ steps.result.outputs.fail }}"
+          SUMMARY="总计${{ steps.result.outputs.total }} 成功${{ steps.result.outputs.ok }} 已签${{ steps.result.outputs.already }} 失败${{ steps.result.outputs.fail }}"
+          # 拼每账号明细：账号ID | 状态 | 签到前 | 签到后
+          LINES=""
+          while IFS='|' read -r _ UID ST PRE POST; do
+            [ -z "$UID" ] && continue
+            LINES="${LINES}${UID} | ${ST} | 前:${PRE} | 后:${POST}<br>"
+          done <<< "$(echo "$SIGNIN_OUTPUT" | grep '^DETAIL|')"
+          BODY="${SUMMARY}<br>${LINES}"
           curl -s -X POST 'https://www.pushplus.plus/send' \
             -H 'Content-Type: application/json' \
             -d "{\"token\":\"${{ secrets.PUSHPLUS_TOKEN }}\",\"title\":\"$TITLE\",\"content\":\"$BODY\",\"template\":\"html\"}" || true
