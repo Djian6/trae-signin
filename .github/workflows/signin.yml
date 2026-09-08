@@ -25,10 +25,14 @@ jobs:
         run: |
           mkdir -p auths
           # 账号1
-          echo '${{ secrets.TRAE_AUTH_1 }}' > auths/trae-1.json
+          if [ -n "${{ secrets.TRAE_AUTH_1 }}" ]; then
+            echo '${{ secrets.TRAE_AUTH_1 }}' > auths/trae-1.json
+          fi
           # 账号2
-          echo '${{ secrets.TRAE_AUTH_2 }}' > auths/trae-2.json
-          # 如需更多账号，添加更多 TRAE_AUTH_N
+          if [ -n "${{ secrets.TRAE_AUTH_2 }}" ]; then
+            echo '${{ secrets.TRAE_AUTH_2 }}' > auths/trae-2.json
+          fi
+          # 如需更多账号，添加更多 TRAE_AUTH_N 及对应分支
 
       - name: 执行签到
         run: |
