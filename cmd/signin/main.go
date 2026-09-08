@@ -20,8 +20,10 @@ type row struct {
 	nick   string
 	status string
 	detail string
-	remain int64
-	hasRem bool
+	pre    int64
+	post   int64
+	hasPre bool
+	hasQry bool
 }
 
 func main() {
@@ -74,6 +76,11 @@ func main() {
 			fmt.Printf("   ✅ token 刷新成功\n")
 		}
 
+		// 签到前积分
+		if remain, qerr := up.UserEntUsage(a); qerr == nil {
+			r.pre, r.hasPre = remain, true
+		}
+
 		// 签到
 		checkedIn, _, enable, serr := up.CheckinStatus(a)
 		switch {
@@ -106,29 +113,44 @@ func main() {
 			}
 		}
 
-		// 查积分
+		// 签到后积分
 		if remain, qerr := up.UserEntUsage(a); qerr == nil {
-			r.remain, r.hasRem = remain, true
+			r.post, r.hasQry = remain, true
 		}
 		rows = append(rows, r)
 	}
 
 	// 报告
 	fmt.Println()
-	fmt.Println("┌──────────────────────────────────────┬───────────────┬──────────────┬──────────┬──────────────────────────────────────┐")
-	fmt.Println("│ UID                                  │ 昵称          │ 状态         │ 积分     │ 详情                                 │")
-	fmt.Println("├──────────────────────────────────────┼───────────────┼──────────────┼──────────┼──────────────────────────────────────┤")
+	fmt.Println("┌──────────────────────────────────────┬───────────────┬──────────────┬──────────┬──────────┬──────────────────────────────────────┐")
+	fmt.Println("│ UID                                  │ 昵称          │ 状态         │ 签到前    │ 签到后    │ 详情                                 │")
+	fmt.Println("├──────────────────────────────────────┼───────────────┼──────────────┼──────────┼──────────┼──────────────────────────────────────┤")
 	for _, r := range rows {
-		remain := "-"
-		if r.hasRem {
-			remain = fmt.Sprintf("%d", r.remain)
+		pre, post := "-", "-"
+		if r.hasPre {
+			pre = fmt.Sprintf("%d", r.pre)
 		}
-		fmt.Printf("│ %-36s │ %-13s │ %-12s │ %-8s │ %-36s │\n",
-			trunc(r.uid, 36), trunc(r.nick, 13), r.status, remain, trunc(r.detail, 36))
+		if r.hasQry {
+			post = fmt.Sprintf("%d", r.post)
+		}
+		fmt.Printf("│ %-36s │ %-13s │ %-12s │ %-8s │ %-8s │ %-36s │\n",
+			trunc(r.uid, 36), trunc(r.nick, 13), r.status, pre, post, trunc(r.detail, 36))
 	}
-	fmt.Println("└──────────────────────────────────────┴───────────────┴──────────────┴──────────┴──────────────────────────────────────┘")
+	fmt.Println("└──────────────────────────────────────┴───────────────┴──────────────┴──────────┴──────────┴──────────────────────────────────────┘")
 	fmt.Println()
 	fmt.Printf("📊 总计=%d  签到成功=%d  已签=%d  禁用=%d  失败=%d\n", len(rows), okN, alreadyN, disabledN, failN)
+
+	// 每账号明细行（供推送解析）：DETAIL|UID|状态|签到前|签到后
+	for _, r := range rows {
+		pre, post := int64(-1), int64(-1)
+		if r.hasPre {
+			pre = r.pre
+		}
+		if r.hasQry {
+			post = r.post
+		}
+		fmt.Printf("DETAIL|%s|%s|%d|%d\n", r.uid, r.status, pre, post)
+	}
 }
 
 func isAlready(msg string) bool {
