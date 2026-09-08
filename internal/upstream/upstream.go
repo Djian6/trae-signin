@@ -118,7 +118,7 @@ func (c *Client) RefreshToken(a *auth.Auth) error {
 
 // CheckinStatus 查询签到状态。
 func (c *Client) CheckinStatus(a *auth.Auth) (checkedIn bool, credits int64, enable bool, err error) {
-	req, err := http.NewRequest(http.MethodPost, UgHost+EpCheckinStatus, bytes.NewReader([]byte("{}")))
+	req, err := http.NewRequest(http.MethodPost, UgHost+EpCheckinStatus, bytes.NewReader([]byte(`{"req_source":2}`)))
 	if err != nil {
 		return false, 0, false, err
 	}
@@ -140,18 +140,31 @@ func (c *Client) CheckinStatus(a *auth.Auth) (checkedIn bool, credits int64, ena
 
 // CheckinClaim 执行签到。
 func (c *Client) CheckinClaim(a *auth.Auth) error {
-	req, err := http.NewRequest(http.MethodPost, UgHost+EpCheckinClaim, bytes.NewReader([]byte("{}")))
+	req, err := http.NewRequest(http.MethodPost, UgHost+EpCheckinClaim, bytes.NewReader([]byte(`{"req_source":2}`)))
 	if err != nil {
 		return err
 	}
 	ugHeaders(req, a)
-	_, err = c.doJSON(req)
-	return err
+	data, err := c.doJSON(req)
+	if err != nil {
+		return err
+	}
+	var resp struct {
+		Code int    `json:"code"`
+		Msg  string `json:"message"`
+	}
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return fmt.Errorf("checkin claim parse: %w", err)
+	}
+	if resp.Code != 0 {
+		return fmt.Errorf("checkin_failed(code=%d): %s", resp.Code, resp.Msg)
+	}
+	return nil
 }
 
 // UserEntUsage 查询积分余额。
 func (c *Client) UserEntUsage(a *auth.Auth) (remain int64, err error) {
-	req, err := http.NewRequest(http.MethodPost, UgHost+EpEntUsage, bytes.NewReader([]byte("{}")))
+	req, err := http.NewRequest(http.MethodPost, UgHost+EpEntUsage, bytes.NewReader([]byte(`{"require_usage":true,"req_source":2}`)))
 	if err != nil {
 		return 0, err
 	}
@@ -161,21 +174,14 @@ func (c *Client) UserEntUsage(a *auth.Auth) (remain int64, err error) {
 		return 0, err
 	}
 	var resp struct {
-		UserEntitlementPackList []struct {
-			EntitlementBaseInfo struct {
-				Quota struct {
-					CreditsLimit int64 `json:"credits_limit"`
-				} `json:"quota"`
-			} `json:"entitlement_base_info"`
-		} `json:"user_entitlement_pack_list"`
+		UsageSummary struct {
+			TotalAmount int64 `json:"total_amount"`
+		} `json:"usage_summary"`
 	}
 	if err := json.Unmarshal(data, &resp); err != nil {
 		return 0, fmt.Errorf("ent usage parse: %w", err)
 	}
-	for _, p := range resp.UserEntitlementPackList {
-		remain += p.EntitlementBaseInfo.Quota.CreditsLimit
-	}
-	return remain, nil
+	return resp.UsageSummary.TotalAmount, nil
 }
 
 func ugHeaders(req *http.Request, a *auth.Auth) {
@@ -184,6 +190,7 @@ func ugHeaders(req *http.Request, a *auth.Auth) {
 	req.Header.Set("User-Agent", clientUA)
 	req.Header.Set("Authorization", "Cloud-IDE-JWT "+a.JWT())
 	req.Header.Set("X-User-Region", "CN")
+	req.Header.Set("X-Device-Type", "windows")
 	if a.DeviceID != "" {
 		req.Header.Set("X-Device-Id", a.DeviceID)
 	}
