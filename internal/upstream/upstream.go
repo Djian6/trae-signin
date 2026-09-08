@@ -191,8 +191,16 @@ func ugHeaders(req *http.Request, a *auth.Auth) {
 	req.Header.Set("Authorization", "Cloud-IDE-JWT "+a.JWT())
 	req.Header.Set("X-User-Region", "CN")
 	req.Header.Set("X-Device-Type", "windows")
-	if a.DeviceID != "" {
-		req.Header.Set("X-Device-Id", a.DeviceID)
+	// 设备号优先使用账号的 16 位数字 UID。多账号同机登录时凭证里的 deviceId
+	// 相同，后端按设备一天一次限签，导致第二个账号 9074 被拒；
+	// 改用各账号自己的 UID 作设备号后互不干扰，均能正常领取。
+	// （RefreshToken 不依赖该头，不受影响）
+	deviceID := a.UID
+	if len(deviceID) != 16 {
+		deviceID = a.DeviceID
+	}
+	if deviceID != "" {
+		req.Header.Set("X-Device-Id", deviceID)
 	}
 }
 
