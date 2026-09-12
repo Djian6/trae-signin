@@ -58,11 +58,11 @@ jobs:
             TITLE="⚠️ TRAE签到异常"
           fi
           SUMMARY="总计${{ steps.result.outputs.total }} 成功${{ steps.result.outputs.ok }} 已签${{ steps.result.outputs.already }} 失败${{ steps.result.outputs.fail }}"
-          # 拼每账号明细：账号ID | 状态 | 签到前 | 签到后
+          # 拼每账号明细：昵称 | 状态 | 前:积分 | 后:积分
           LINES=""
-          while IFS='|' read -r _ ACC ST PRE POST; do
-            [ -z "$ACC" ] && continue
-            LINES="${LINES}${ACC} | ${ST} | 前:${PRE} | 后:${POST}<br>"
+          while IFS='|' read -r _ NICK ST PRE POST; do
+            [ -z "$NICK" ] && continue
+            LINES="${LINES}${NICK} | ${ST} | 前:${PRE} | 后:${POST}<br>"
           done <<< "$(echo "$SIGNIN_OUTPUT" | grep '^DETAIL|')"
           BODY="${SUMMARY}<br>${LINES}"
           curl -s -X POST 'https://www.pushplus.plus/send' \
