@@ -2,10 +2,10 @@ name: TRAE 每日签到
 
 on:
   schedule:
-    # 计划 07:01 UTC = 15:01 北京时间。GitHub 定时任务不保证准点，
-    # 实测 16:01 UTC 的计划会被延迟约 12 小时执行；按此推算，计划设
-    # 在 UTC 07:01 时实际执行约在北京时间凌晨 03:21（落在 2:00~5:00 窗口内）。
-    - cron: '1 7 * * *'
+    # 计划 12:01 UTC = 20:01 北京时间。GitHub 定时任务会排队延迟，且不保证准点；
+    # 因此把计划提前，job 启动后由「等待北京时间 00:01」步骤对齐到整点再签到：
+    # 若启动时间在北京 00:01 前，sleep 到 00:01 执行；若已过 00:01，则立即签到。
+    - cron: '1 12 * * *'
   workflow_dispatch: # 支持手动触发
 
 jobs:
@@ -35,6 +35,21 @@ jobs:
             echo '${{ secrets.TRAE_AUTH_2 }}' > auths/trae-2.json
           fi
           # 如需更多账号，添加更多 TRAE_AUTH_N 及对应分支
+
+      - name: 等待北京时间 00:01
+        run: |
+          python3 - <<'PYEOF'
+          import time
+          from datetime import datetime, timedelta, timezone
+          now = datetime.now(timezone.utc) + timedelta(hours=8)  # 北京时间
+          target = now.replace(hour=0, minute=1, second=0, microsecond=0)  # 下一个北京 00:01
+          wait = int((target - now).total_seconds())
+          if 0 < wait <= 5 * 3600:
+              print(f"当前北京时间 {now.strftime('%Y-%m-%d %H:%M:%S')}，等待 {wait} 秒到 00:01 再签到")
+              time.sleep(wait)
+          else:
+              print(f"当前北京时间 {now.strftime('%Y-%m-%d %H:%M:%S')}，已过 00:01 窗口，立即签到")
+          PYEOF
 
       - name: 执行签到
         run: |
