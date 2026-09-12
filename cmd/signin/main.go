@@ -140,7 +140,7 @@ func main() {
 	fmt.Println()
 	fmt.Printf("📊 总计=%d  签到成功=%d  已签=%d  禁用=%d  失败=%d\n", len(rows), okN, alreadyN, disabledN, failN)
 
-	// 每账号明细行（供推送解析）：DETAIL|UID|状态|签到前|签到后
+	// 每账号明细行（供推送解析）：DETAIL|昵称|状态|签到前|签到后
 	for _, r := range rows {
 		pre, post := int64(-1), int64(-1)
 		if r.hasPre {
@@ -149,7 +149,23 @@ func main() {
 		if r.hasQry {
 			post = r.post
 		}
-		fmt.Printf("DETAIL|%s|%s|%d|%d\n", r.uid, r.status, pre, post)
+		fmt.Printf("DETAIL|%s|%s|%d|%d\n", r.nick, cnStatus(r.status), pre, post)
+	}
+}
+
+// cnStatus 把内部状态码转成中文，用于推送展示。
+func cnStatus(s string) string {
+	switch s {
+	case "ALREADY":
+		return "已签到"
+	case "✅ OK":
+		return "签到成功"
+	case "FAIL":
+		return "签到失败"
+	case "DISABLED":
+		return "已禁用"
+	default:
+		return s
 	}
 }
 
