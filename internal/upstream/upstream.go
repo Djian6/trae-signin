@@ -162,7 +162,10 @@ func (c *Client) CheckinClaim(a *auth.Auth) error {
 	return nil
 }
 
-// UserEntUsage 查询积分余额。
+// UserEntUsage 查询可用积分余额。
+// TRAE 应用界面显示的积分 = total_amount - consumed_amount（剩余可用额度），
+// 而不是 total_amount（总额度）。之前直接返回 total_amount 导致推送的积分
+// 与 App 显示不一致（少报了已消耗部分）。
 func (c *Client) UserEntUsage(a *auth.Auth) (remain int64, err error) {
 	req, err := http.NewRequest(http.MethodPost, UgHost+EpEntUsage, bytes.NewReader([]byte(`{"require_usage":true,"req_source":2}`)))
 	if err != nil {
@@ -175,13 +178,15 @@ func (c *Client) UserEntUsage(a *auth.Auth) (remain int64, err error) {
 	}
 	var resp struct {
 		UsageSummary struct {
-			TotalAmount int64 `json:"total_amount"`
+			TotalAmount    int64   `json:"total_amount"`
+			ConsumedAmount float64 `json:"consumed_amount"`
 		} `json:"usage_summary"`
 	}
 	if err := json.Unmarshal(data, &resp); err != nil {
 		return 0, fmt.Errorf("ent usage parse: %w", err)
 	}
-	return resp.UsageSummary.TotalAmount, nil
+	remain = resp.UsageSummary.TotalAmount - int64(resp.UsageSummary.ConsumedAmount)
+	return remain, nil
 }
 
 func ugHeaders(req *http.Request, a *auth.Auth) {
