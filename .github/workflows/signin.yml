@@ -34,6 +34,10 @@ jobs:
           if [ -n "${{ secrets.TRAE_AUTH_2 }}" ]; then
             echo '${{ secrets.TRAE_AUTH_2 }}' > auths/trae-2.json
           fi
+          # 账号3
+          if [ -n "${{ secrets.TRAE_AUTH_3 }}" ]; then
+            echo '${{ secrets.TRAE_AUTH_3 }}' > auths/trae-3.json
+          fi
           # 如需更多账号，添加更多 TRAE_AUTH_N 及对应分支
 
       - name: 等待北京时间 00:01
